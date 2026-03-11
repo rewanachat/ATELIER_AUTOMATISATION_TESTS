@@ -1,15 +1,31 @@
-from flask import Flask, render_template_string, render_template, jsonify, request, redirect, url_for, session
-from flask import render_template
-from flask import json
-from urllib.request import urlopen
-from werkzeug.utils import secure_filename
-import sqlite3
+from flask import Flask, render_template, jsonify
+from tester.runner import run_all_tests
+from storage import save_run, list_runs
 
 app = Flask(__name__)
 
+# Page d'accueil : tes consignes
 @app.get("/")
 def consignes():
-     return render_template('consignes.html')
+    return render_template("consignes.html")
+
+# Lancer un run de tests
+@app.get("/run")
+def run_tests():
+    result = run_all_tests()
+    save_run(result)
+    return jsonify(result)
+
+# Dashboard HTML
+@app.get("/dashboard")
+def dashboard():
+    runs = list_runs()
+    return render_template("dashboard.html", runs=runs)
+
+# Healthcheck
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     # utile en local uniquement
