@@ -1,7 +1,7 @@
 # API Choice
 
-- Étudiant :
-- API choisie :
+- Étudiant : ZADOUD Rewan
+- API choisie : https://api.quotable.io/random
 - URL base :
 - Documentation officielle / README :
 - Auth : None / API Key / OAuth
