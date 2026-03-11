@@ -1,39 +1,218 @@
-
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Dashboard Agify</title>
+    <title>Dashboard Agify – BI Edition</title>
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Style BI -->
+    <style>
+        body {
+            font-family: "Segoe UI", Roboto, sans-serif;
+            background: #f5f7fa;
+            margin: 0;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            font-weight: 700;
+            margin-bottom: 30px;
+        }
+
+        .kpi-container {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 40px;
+        }
+
+        .kpi {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            width: 22%;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+            text-align: center;
+            transition: 0.3s;
+        }
+
+        .kpi:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.12);
+        }
+
+        .kpi-title {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .charts {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+
+        .chart-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+
+        .history {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+        }
+    </style>
 </head>
+
 <body>
-    <h1>Dashboard Agify</h1>
 
-    {% if runs %}
-        {% for ts, run in runs %}
-            <section>
-                <h2>Run du {{ ts }}</h2>
-                <p>Pass: {{ run.summary.passed }} | Fail: {{ run.summary.failed }}</p>
-                <p>Erreur: {{ (run.summary.error_rate * 100) | round(1) }} %</p>
-                <p>Latence moyenne: {{ run.summary.latency_ms_avg | round(1) }} ms</p>
-                <p>p95: {{ run.summary.latency_ms_p95 | round(1) }} ms</p>
+<h1>Dashboard Agify – BI Edition</h1>
 
-                <ul>
-                    {% for t in run.tests %}
-                        <li>{{ t.name }} → {{ t.status }}
-                            {% if t.latency_ms is defined %}
-                                ({{ t.latency_ms | round(1) }} ms)
-                            {% endif %}
-                            {% if t.details is defined %}
-                                - {{ t.details }}
-                            {% endif %}
-                        </li>
-                    {% endfor %}
-                </ul>
-            </section>
-            <hr>
-        {% endfor %}
-    {% else %}
-        <p>Aucun run pour l’instant.</p>
-    {% endif %}
+<!-- KPI CARDS -->
+<div class="kpi-container">
+    <div class="kpi">
+        <div class="kpi-title">Latence moyenne</div>
+        <div class="kpi-value">{{ runs[0][1].summary.latency_ms_avg | round(1) }} ms</div>
+    </div>
+
+    <div class="kpi">
+        <div class="kpi-title">p95</div>
+        <div class="kpi-value">{{ runs[0][1].summary.latency_ms_p95 | round(1) }} ms</div>
+    </div>
+
+    <div class="kpi">
+        <div class="kpi-title">Taux d’erreur</div>
+        <div class="kpi-value">{{ (runs[0][1].summary.error_rate * 100) | round(1) }} %</div>
+    </div>
+
+    <div class="kpi">
+        <div class="kpi-title">Disponibilité</div>
+        <div class="kpi-value">{{ (1 - runs[0][1].summary.error_rate) * 100 | round(1) }} %</div>
+    </div>
+</div>
+
+<!-- CHARTS -->
+<div class="charts">
+    <div class="chart-card">
+        <h3>Latence moyenne</h3>
+        <canvas id="latencyChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+        <h3>p95</h3>
+        <canvas id="p95Chart"></canvas>
+    </div>
+
+    <div class="chart-card">
+        <h3>Taux d’erreur (%)</h3>
+        <canvas id="errorChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+        <h3>Pass vs Fail</h3>
+        <canvas id="passfailChart"></canvas>
+    </div>
+</div>
+
+<!-- HISTORIQUE -->
+<div class="history">
+    <h2>Historique détaillé</h2>
+
+    {% for ts, run in runs %}
+        <h3>{{ ts }}</h3>
+        <p>Pass: {{ run.summary.passed }} | Fail: {{ run.summary.failed }}</p>
+        <p>Latence moyenne: {{ run.summary.latency_ms_avg | round(1) }} ms</p>
+        <p>p95: {{ run.summary.latency_ms_p95 | round(1) }} ms</p>
+        <hr>
+    {% endfor %}
+</div>
+
+<script>
+    const timestamps = {{ runs | map(attribute=0) | list | tojson }};
+    const avgLatencies = {{ runs | map(attribute=1) | map(attribute='summary') | map(attribute='latency_ms_avg') | list | tojson }};
+    const p95Latencies = {{ runs | map(attribute=1) | map(attribute='summary') | map(attribute='latency_ms_p95') | list | tojson }};
+    const errorRates = {{ runs | map(attribute=1) | map(attribute='summary') | map(attribute='error_rate') | list | tojson }};
+    const passed = {{ runs | map(attribute=1) | map(attribute='summary') | map(attribute='passed') | list | tojson }};
+    const failed = {{ runs | map(attribute=1) | map(attribute='summary') | map(attribute='failed') | list | tojson }};
+
+    // Latence moyenne
+    new Chart(document.getElementById('latencyChart'), {
+        type: 'line',
+        data: {
+            labels: timestamps,
+            datasets: [{
+                label: 'Latence moyenne (ms)',
+                data: avgLatencies,
+                borderColor: '#0078D4',
+                backgroundColor: 'rgba(0,120,212,0.2)',
+                fill: true,
+                tension: 0.3
+            }]
+        }
+    });
+
+    // p95
+    new Chart(document.getElementById('p95Chart'), {
+        type: 'line',
+        data: {
+            labels: timestamps,
+            datasets: [{
+                label: 'p95 (ms)',
+                data: p95Latencies,
+                borderColor: '#FF8C00',
+                backgroundColor: 'rgba(255,140,0,0.2)',
+                fill: true,
+                tension: 0.3
+            }]
+        }
+    });
+
+    // Taux d’erreur
+    new Chart(document.getElementById('errorChart'), {
+        type: 'bar',
+        data: {
+            labels: timestamps,
+            datasets: [{
+                label: 'Taux d’erreur (%)',
+                data: errorRates.map(x => x * 100),
+                backgroundColor: '#D83B01'
+            }]
+        }
+    });
+
+    // Pass / Fail
+    new Chart(document.getElementById('passfailChart'), {
+        type: 'bar',
+        data: {
+            labels: timestamps,
+            datasets: [
+                {
+                    label: 'Pass',
+                    data: passed,
+                    backgroundColor: '#107C10'
+                },
+                {
+                    label: 'Fail',
+                    data: failed,
+                    backgroundColor: '#D83B01'
+                }
+            ]
+        }
+    });
+</script>
+
 </body>
 </html>
