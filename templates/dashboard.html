@@ -1,1 +1,39 @@
 
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard Agify</title>
+</head>
+<body>
+    <h1>Dashboard Agify</h1>
+
+    {% if runs %}
+        {% for ts, run in runs %}
+            <section>
+                <h2>Run du {{ ts }}</h2>
+                <p>Pass: {{ run.summary.passed }} | Fail: {{ run.summary.failed }}</p>
+                <p>Erreur: {{ (run.summary.error_rate * 100) | round(1) }} %</p>
+                <p>Latence moyenne: {{ run.summary.latency_ms_avg | round(1) }} ms</p>
+                <p>p95: {{ run.summary.latency_ms_p95 | round(1) }} ms</p>
+
+                <ul>
+                    {% for t in run.tests %}
+                        <li>{{ t.name }} → {{ t.status }}
+                            {% if t.latency_ms is defined %}
+                                ({{ t.latency_ms | round(1) }} ms)
+                            {% endif %}
+                            {% if t.details is defined %}
+                                - {{ t.details }}
+                            {% endif %}
+                        </li>
+                    {% endfor %}
+                </ul>
+            </section>
+            <hr>
+        {% endfor %}
+    {% else %}
+        <p>Aucun run pour l’instant.</p>
+    {% endif %}
+</body>
+</html>
